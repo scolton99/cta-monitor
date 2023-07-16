@@ -146,11 +146,11 @@ pub async fn load_gtfs(conf: &Config) -> Result<(), Box<dyn std::error::Error>> 
     Agency::save_all(&mut db, agencies.as_mut_slice())?;
     trace!("Agencies inserted.");
 
-    trace!("Inserting stops...");
+    trace!("Inserting shapes...");
     Shape::save_all(&mut db, shapes.as_mut_slice())?;
     trace!("Shapes inserted.");
 
-    trace!("Inserting shapes...");
+    trace!("Inserting stops...");
     Stop::save_all(&mut db, stops.as_mut_slice())?;
     trace!("Stops inserted.");
 
