@@ -2,10 +2,6 @@ use crate::util::Record;
 use record_derive::Record;
 use serde::Deserialize;
 
-use crate::util::DB;
-use mysql::prelude::Queryable;
-use mysql::Result;
-
 #[derive(Record, Deserialize)]
 #[table_name = "gtfs_agency"]
 pub struct Agency {

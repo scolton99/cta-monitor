@@ -1,15 +1,10 @@
-use mysql::{Result, PooledConn, Conn, Transaction};
-
-pub enum DB<'a> {
-    Pooled(PooledConn),
-    Standard(Conn),
-    Tx(Transaction<'a>)
-}
+use mysql::Result;
+use mysql::prelude::Queryable;
 
 pub trait Record : Sized {
-    fn all(conn: &mut DB) -> Result<Vec<Self>>;
-    fn save(&mut self, conn: &mut DB) -> Result<()>;
-    fn reload(&mut self, conn: &mut DB) -> Result<()>;
-    fn destroy_all(conn: &mut DB) -> Result<()>;
-    fn save_all(conn: &mut DB, items: &mut [Self]) -> Result<()>;
+    fn all<T: Queryable>(conn: &mut T) -> Result<Vec<Self>>;
+    fn save<T: Queryable>(&mut self, conn: &mut T) -> Result<()>;
+    fn reload<T: Queryable>(&mut self, conn: &mut T) -> Result<()>;
+    fn destroy_all<T: Queryable>(conn: &mut T) -> Result<()>;
+    fn save_all<T: Queryable>(conn: &mut T, items: &mut [Self]) -> Result<()>;
 }

@@ -139,96 +139,48 @@ fn impl_record(ast: &syn::DeriveInput) -> TokenStream {
 
     let gen = quote! {
         impl Record for #name {
-            fn all(conn: &mut DB) -> Result<Vec<#name>> {
+            fn all<T: mysql::prelude::Queryable>(conn: &mut T) -> mysql::Result<Vec<#name>> {
                 log::trace!(#get_all);
-                match conn {
-                    DB::Pooled(p) => {
-                        p.query_map(#get_all, |(#(#field_idents),*,)| {
-                            #name { #(#field_idents),* }
-                        })
-                    },
-                    DB::Standard(p) => {
-                        p.query_map(#get_all, |(#(#field_idents),*,)| {
-                            #name { #(#field_idents),* }
-                        })
-                    },
-                    DB::Tx(p) => {
-                        p.query_map(#get_all, |(#(#field_idents),*,)| {
-                            #name { #(#field_idents),* }
-                        })
-                    }
-                }
+                conn.query_map(#get_all, |(#(#field_idents),*,)| {
+                    #name { #(#field_idents),* }
+                })
             }
 
-            fn save(&mut self, conn: &mut DB) -> Result<()> {
+            fn save<T: mysql::prelude::Queryable>(&mut self, conn: &mut T) -> mysql::Result<()> {
                 let prim_field_vals = vec![#(self.#prim_field_idents.is_some()),*];
                 let all_some = prim_field_vals.iter().all(|it| *{ it });
 
                 if all_some {
                     log::trace!(#check_exists);
-                    let count = match conn {
-                        DB::Pooled(p) => {
-                            p.exec_fold(#check_exists, (#(&self.#prim_field_idents.as_ref().unwrap()),*,), 0, | last, row: (usize,) | {
-                                last + row.0
-                            })
-                        },
-                        DB::Standard(p) => {
-                            p.exec_fold(#check_exists, (#(&self.#prim_field_idents.as_ref().unwrap()),*,), 0, | last, row: (usize,) | {
-                                last + row.0
-                            })
-                        },
-                        DB::Tx(p) => {
-                            p.exec_fold(#check_exists, (#(&self.#prim_field_idents.as_ref().unwrap()),*,), 0, | last, row: (usize,) | {
-                                last + row.0
-                            })
-                        }
-                    }.unwrap();
+                    let count = conn.exec_fold(#check_exists, (#(&self.#prim_field_idents.as_ref().unwrap()),*,), 0, | last, row: (usize,) | {
+                        last + row.0
+                    }).unwrap();
 
                     if count == 0 {
                         log::trace!(#insert_stmt);
-                        match conn {
-                            DB::Pooled(p) => p.exec_drop(#insert_stmt, (#(&self.#field_idents),*,)),
-                            DB::Standard(p) => p.exec_drop(#insert_stmt, (#(&self.#field_idents),*,)),
-                            DB::Tx(p) => p.exec_drop(#insert_stmt, (#(&self.#field_idents),*,))
-                        }
+                        conn.exec_drop(#insert_stmt, (#(&self.#field_idents),*,))
                     } else {
                         log::trace!(#update_stmt);
-                        match conn {
-                            DB::Pooled(p) => p.exec_drop(#update_stmt, (#(&self.#update_field_idents),*,)),
-                            DB::Standard(p) => p.exec_drop(#update_stmt, (#(&self.#update_field_idents),*,)),
-                            DB::Tx(p) => p.exec_drop(#update_stmt, (#(&self.#update_field_idents),*,))
-                        }
+                        conn.exec_drop(#update_stmt, (#(&self.#update_field_idents),*,))
                     }
                 } else {
                     panic!();
                 }
             }
 
-            fn reload(&mut self, conn: &mut DB) -> Result<()> {
+            fn reload<T: mysql::prelude::Queryable>(&mut self, conn: &mut T) -> mysql::Result<()> {
                 todo!()
             }
 
-            fn destroy_all(conn: &mut DB) -> Result<()> {
+            fn destroy_all<T: mysql::prelude::Queryable>(conn: &mut T) -> mysql::Result<()> {
                 log::trace!(#truncate_stmt);
-                match conn {
-                    DB::Pooled(p) => p.exec_drop(#truncate_stmt, ()),
-                    DB::Standard(p) => p.exec_drop(#truncate_stmt, ()),
-                    DB::Tx(p) => p.exec_drop(#truncate_stmt, ())
-                }
+                conn.exec_drop(#truncate_stmt, ())
             }
 
-            fn save_all(conn: &mut DB, items: &mut [#name]) -> Result<()> {
-                match conn {
-                    DB::Pooled(p) => p.exec_batch(#insert_stmt, items.iter().map(|item| {
-                        (#(&item.#field_idents),*,)
-                    })),
-                    DB::Standard(p) => p.exec_batch(#insert_stmt, items.iter().map(|item| {
-                        (#(&item.#field_idents),*,)
-                    })),
-                    DB::Tx(p) => p.exec_batch(#insert_stmt, items.iter().map(|item| {
-                        (#(&item.#field_idents),*,)
-                    }))
-                }
+            fn save_all<T: mysql::prelude::Queryable>(conn: &mut T, items: &mut [#name]) -> mysql::Result<()> {
+                conn.exec_batch(#insert_stmt, items.iter().map(|item| {
+                    (#(&item.#field_idents),*,)
+                }))
             }
         }
     };
