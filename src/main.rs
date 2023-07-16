@@ -1,4 +1,4 @@
-use log::debug;
+use log::{debug, error};
 use tokio::fs::OpenOptions;
 use structured_logger::async_json::new_writer;
 use structured_logger::Builder;
@@ -25,7 +25,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cfg: Config = confy::load("cta-monitor", None)?;
     debug!("Loaded configuration: {:?}", &cfg);
 
-    load_gtfs(&cfg).await?;
+    if let Err(e) = load_gtfs(&cfg).await {
+        error!("{}", e);
+    }
 
     Ok(())
 }
