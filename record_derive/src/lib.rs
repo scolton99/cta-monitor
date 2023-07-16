@@ -175,6 +175,20 @@ fn impl_record(ast: &syn::DeriveInput) -> TokenStream {
                     DB::Tx(p) => p.exec_drop(#truncate_stmt, ())
                 }
             }
+
+            fn save_all(conn: &mut DB, items: &mut [#name]) -> Result<()> {
+                match conn {
+                    DB::Pooled(p) => p.exec_batch(#insert_stmt, items.iter().map(|item| {
+                        (#(&item.#field_idents),*,)
+                    })),
+                    DB::Standard(p) => p.exec_batch(#insert_stmt, items.iter().map(|item| {
+                        (#(&item.#field_idents),*,)
+                    })),
+                    DB::Tx(p) => p.exec_batch(#insert_stmt, items.iter().map(|item| {
+                        (#(&item.#field_idents),*,)
+                    }))
+                }
+            }
         }
     };
 

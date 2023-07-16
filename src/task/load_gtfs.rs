@@ -3,7 +3,10 @@ use std::io::Cursor;
 use std::path::PathBuf;
 use tempfile::{tempdir, TempDir};
 use std::{fs, vec};
-use mysql::Pool;
+use std::cmp::Ordering;
+use log::trace;
+use mysql::{Pool, Transaction, TxOpts};
+use mysql::prelude::Queryable;
 use serde::de::DeserializeOwned;
 use crate::model::gtfs::{Stop, Agency, Route, Frequency, Shape, Calendar, Trip, CalendarDate, StopTime, Transfer};
 
@@ -38,86 +41,118 @@ pub async fn load_gtfs(conf: &Config) -> Result<(), Box<dyn std::error::Error>> 
     zip_extract::extract(Cursor::new(response_bytes), gtfs_dir.path(), true)?;
 
     let mut stops: Vec<Stop> = conv(&gtfs_dir, "stops.txt")?;
-    let mut agencies: Vec<Agency> = conv(&gtfs_dir, "agency.txt")?;
-    let mut routes: Vec<Route> = conv(&gtfs_dir, "routes.txt")?;
-    let mut frequencies: Vec<Frequency> = conv(&gtfs_dir, "frequencies.txt")?;
-    let mut shapes: Vec<Shape> = conv(&gtfs_dir, "shapes.txt")?;
-    let mut trips: Vec<Trip> = conv(&gtfs_dir, "trips.txt")?;
-    let mut calendars: Vec<Calendar> = conv(&gtfs_dir, "calendar.txt")?;
-    let mut calendar_dates: Vec<CalendarDate> = conv(&gtfs_dir, "calendar_dates.txt")?;
-    let mut stop_times: Vec<StopTime> = conv(&gtfs_dir, "stop_times.txt")?;
-    let mut transfers: Vec<Transfer> = conv(&gtfs_dir, "transfers.txt")?;
+    trace!("Loaded {} stops into memory from file stops.txt", stops.len());
 
-    println!("{}", stops[0].stop_name);
-    println!("{}", agencies[0].agency_name.as_ref().unwrap());
-    println!("{}", routes[0].route_long_name.as_ref().unwrap());
-    println!("{}", frequencies[0].trip_id.as_ref().unwrap());
-    println!("{}", shapes[0].shape_id.as_ref().unwrap());
-    println!("{}", trips[0].trip_id.as_ref().unwrap());
-    println!("{}", calendars[0].service_id.as_ref().unwrap());
-    println!("{}", calendar_dates[0].service_id.as_ref().unwrap());
-    println!("{}", stop_times[0].stop_id.as_str());
-    println!("{}", transfers[0].from_stop_id.as_ref().unwrap());
+    let mut agencies: Vec<Agency> = conv(&gtfs_dir, "agency.txt")?;
+    trace!("Loaded {} agencies into memory from file agency.txt", agencies.len());
+
+    let mut routes: Vec<Route> = conv(&gtfs_dir, "routes.txt")?;
+    trace!("Loaded {} routes into memory from file routes.txt", routes.len());
+
+    let mut frequencies: Vec<Frequency> = conv(&gtfs_dir, "frequencies.txt")?;
+    trace!("Loaded {} frequencies into memory from file frequencies.txt", frequencies.len());
+
+    let mut shapes: Vec<Shape> = conv(&gtfs_dir, "shapes.txt")?;
+    trace!("Loaded {} shapes into memory from file shapes.txt", shapes.len());
+
+    let mut trips: Vec<Trip> = conv(&gtfs_dir, "trips.txt")?;
+    trace!("Loaded {} trips into memory from file trips.txt", trips.len());
+
+    let mut calendars: Vec<Calendar> = conv(&gtfs_dir, "calendar.txt")?;
+    trace!("Loaded {} calendars into memory from file calendar.txt", calendars.len());
+
+    let mut calendar_dates: Vec<CalendarDate> = conv(&gtfs_dir, "calendar_dates.txt")?;
+    trace!("Loaded {} calendar dates into memory from file calendar_dates.txt", calendar_dates.len());
+
+    let mut stop_times: Vec<StopTime> = conv(&gtfs_dir, "stop_times.txt")?;
+    trace!("Loaded {} stop times into memory from file stop_times.txt", stop_times.len());
+
+    let mut transfers: Vec<Transfer> = conv(&gtfs_dir, "transfers.txt")?;
+    trace!("Loaded {} transfers into memory from file transfers.txt", transfers.len());
+
+    stops.sort_by(|a, b| {
+        match (&a.parent_station, &b.parent_station) {
+            (Some(a), Some(b)) => a.cmp(b),
+            (None, Some(_)) => Ordering::Less,
+            (Some(_), None) => Ordering::Greater,
+            (None, None) => match (&a.stop_id, &b.stop_id) {
+                (Some(a), Some(b)) => a.cmp(b),
+                (None, Some(_)) => Ordering::Less,
+                (Some(_), None) => Ordering::Greater,
+                (None, None) => Ordering::Equal
+            }
+        }
+    });
+    trace!("Sorted stops to avoid foreign key errors");
 
     let pool = Pool::new(conf.mysql_connect_uri.as_str())?;
-    let mut db = DB::Pooled(pool.get_conn()?);
+    let mut conn = pool.get_conn()?;
+    trace!("Connection established");
 
-    let search_trip_id = stop_times[0].trip_id.as_ref().unwrap();
-    let search_stop_id = &stop_times[0].stop_id;
+    let mut tx = conn.start_transaction(TxOpts::default())?;
+    trace!("Transaction started");
 
-    let found_trip = trips.iter().position(|it| { it.trip_id.as_ref().unwrap_or(&"".to_owned()).eq(search_trip_id) })
-        .expect(format!("Missing trip {}!", search_trip_id).as_str());
+    tx.query_drop("SET FOREIGN_KEY_CHECKS = 0")?;
+    trace!("Disabled foreign key checks before truncations begin");
 
-    let found_stop = stops.iter().position(|it| { it.stop_id.as_ref().unwrap_or(&"".to_owned()).eq(search_stop_id) })
-            .expect(format!("Missing stop {}!", search_stop_id).as_str());
+    let mut db = DB::Tx(tx);
 
-    let search_parent_stop_id = stops[found_stop].parent_station.as_ref().unwrap();
+    trace!("Clearing old transfers...");
+    Transfer::destroy_all(&mut db)?;
+    trace!("Transfers cleared.");
 
-    let found_parent_stop = stops.iter().position(|it| { it.stop_id.as_ref().unwrap_or(&"".to_owned()).eq(search_parent_stop_id) })
-        .expect(format!("Missing stop {}!", search_parent_stop_id).as_str());
+    trace!("Clearing old frequencies...");
+    Frequency::destroy_all(&mut db)?;
+    trace!("Frequencies cleared.");
 
-    let search_transfer_from_stop_id = transfers[0].from_stop_id.as_ref().unwrap();
-    let search_transfer_to_stop_id = transfers[0].to_stop_id.as_ref().unwrap();
+    trace!("Clearing old stop times...");
+    StopTime::destroy_all(&mut db)?;
+    trace!("Stop times cleared.");
 
-    let found_transfer_from_stop = stops.iter().position(|it| { it.stop_id.as_ref().unwrap_or(&"".to_owned()).eq(search_transfer_from_stop_id) })
-        .expect(format!("Missing stop {}!", search_transfer_from_stop_id).as_str());
+    trace!("Clearing old trips...");
+    Trip::destroy_all(&mut db)?;
+    trace!("Trips cleared.");
 
-    let found_transfer_to_stop = stops.iter().position(|it| { it.stop_id.as_ref().unwrap_or(&"".to_owned()).eq(search_transfer_to_stop_id) })
-        .expect(format!("Missing stop {}!", search_transfer_to_stop_id).as_str());
+    trace!("Clearing old calendar dates...");
+    CalendarDate::destroy_all(&mut db)?;
+    trace!("Calendar dates cleared.");
 
-    let search_from_parent_id = stops[found_transfer_from_stop].parent_station.as_ref().unwrap();
-    let search_to_parent_id = stops[found_transfer_to_stop].parent_station.as_ref().unwrap();
+    trace!("Clearing old calendars...");
+    Calendar::destroy_all(&mut db)?;
+    trace!("Calendars cleared.");
 
-    let found_from_parent = stops.iter().position(|it| { it.stop_id.as_ref().unwrap_or(&"".to_owned()).eq(search_from_parent_id) })
-        .expect(format!("Missing stop {}!", search_from_parent_id).as_str());
+    trace!("Clearing old routes...");
+    Route::destroy_all(&mut db)?;
+    trace!("Routes cleared.");
 
-    let found_to_parent = stops.iter().position(|it| { it.stop_id.as_ref().unwrap_or(&"".to_owned()).eq(search_to_parent_id) })
-        .expect(format!("Missing stop {}!", search_to_parent_id).as_str());
+    trace!("Clearing old stops...");
+    Stop::destroy_all(&mut db)?;
+    trace!("Stops cleared.");
 
-    stops[found_from_parent].save(&mut db)?;
-    stops[found_to_parent].save(&mut db)?;
+    trace!("Clearing old shapes...");
+    Shape::destroy_all(&mut db)?;
+    trace!("Shapes cleared.");
 
-    stops[found_transfer_from_stop].save(&mut db)?;
-    stops[found_transfer_to_stop].save(&mut db)?;
+    trace!("Clearing old agencies...");
+    Agency::destroy_all(&mut db)?;
+    trace!("Agencies cleared.");
 
-    stops[found_parent_stop].save(&mut db)?;
+    if let DB::Tx(tx) = &mut db {
+        tx.query_drop("SET FOREIGN_KEY_CHECKS = 1")?;
+        trace!("Re-enabled foreign key checks post-truncations");
+    }
 
-    trips[found_trip].save(&mut db)?;
-    stops[found_stop].save(&mut db)?;
+    trace!("Inserting agencies...");
+    Agency::save_all(&mut db, agencies.as_mut_slice())?;
+    trace!("Agencies inserted.");
 
-    stops[0].save(&mut db)?;
-    agencies[0].save(&mut db)?;
-    routes[0].save(&mut db)?;
+    trace!("Inserting stops...");
+    Stop::save_all(&mut db, stops.as_mut_slice())?;
+    trace!("Stops inserted.");
 
-    frequencies[0].end_time = "05:31:00".to_owned();
-    frequencies[0].save(&mut db)?;
-
-    shapes[0].save(&mut db)?;
-    trips[0].save(&mut db)?;
-    calendars[0].save(&mut db)?;
-    calendar_dates[0].save(&mut db)?;
-    stop_times[0].save(&mut db)?;
-    transfers[0].save(&mut db)?;
+    if let DB::Tx(tx) = db {
+        tx.commit()?;
+    }
 
     Ok(())
 }

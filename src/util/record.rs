@@ -11,4 +11,5 @@ pub trait Record : Sized {
     fn save(&mut self, conn: &mut DB) -> Result<()>;
     fn reload(&mut self, conn: &mut DB) -> Result<()>;
     fn destroy_all(conn: &mut DB) -> Result<()>;
+    fn save_all(conn: &mut DB, items: &mut [Self]) -> Result<()>;
 }
