@@ -1,0 +1,17 @@
+[package]
+name = "cta-monitor"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+mysql = "*"
+confy = "0.5.1"
+serde = { version="1.0.164", features = ["derive"] }
+record_derive = { path = "record_derive" }
+csv = "1.2.2"
+reqwest = "0.11.18"
+tempfile = "3.6.0"
+zip-extract = "0.1.2"
+tokio = { version = "1.28.2", features = ["full"] }
