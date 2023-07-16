@@ -104,6 +104,7 @@ fn impl_record(ast: &syn::DeriveInput) -> TokenStream {
     let gen = quote! {
         impl Record for #name {
             fn all(conn: &mut DB) -> Result<Vec<#name>> {
+                log::trace!(#get_all);
                 match conn {
                     DB::Pooled(p) => {
                         p.query_map(#get_all, |(#(#field_idents),*,)| {
@@ -128,6 +129,7 @@ fn impl_record(ast: &syn::DeriveInput) -> TokenStream {
                 let all_some = prim_field_vals.iter().all(|it| *{ it });
 
                 if all_some {
+                    log::trace!(#check_exists);
                     let count = match conn {
                         DB::Pooled(p) => {
                             p.exec_fold(#check_exists, (#(&self.#prim_field_idents.as_ref().unwrap()),*,), 0, | last, row: (usize,) | {
@@ -147,12 +149,14 @@ fn impl_record(ast: &syn::DeriveInput) -> TokenStream {
                     }.unwrap();
 
                     if count == 0 {
+                        log::trace!(#insert_stmt);
                         match conn {
                             DB::Pooled(p) => p.exec_drop(#insert_stmt, (#(&self.#field_idents),*,)),
                             DB::Standard(p) => p.exec_drop(#insert_stmt, (#(&self.#field_idents),*,)),
                             DB::Tx(p) => p.exec_drop(#insert_stmt, (#(&self.#field_idents),*,))
                         }
                     } else {
+                        log::trace!(#update_stmt);
                         match conn {
                             DB::Pooled(p) => p.exec_drop(#update_stmt, (#(&self.#update_field_idents),*,)),
                             DB::Standard(p) => p.exec_drop(#update_stmt, (#(&self.#update_field_idents),*,)),
@@ -169,6 +173,7 @@ fn impl_record(ast: &syn::DeriveInput) -> TokenStream {
             }
 
             fn destroy_all(conn: &mut DB) -> Result<()> {
+                log::trace!(#truncate_stmt);
                 match conn {
                     DB::Pooled(p) => p.exec_drop(#truncate_stmt, ()),
                     DB::Standard(p) => p.exec_drop(#truncate_stmt, ()),

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use tempfile::{tempdir, TempDir};
 use std::{fs, vec};
 use std::cmp::Ordering;
-use log::trace;
+use log::{debug, info, trace};
 use mysql::{Pool, Transaction, TxOpts};
 use mysql::prelude::Queryable;
 use serde::de::DeserializeOwned;
@@ -34,41 +34,45 @@ fn conv<T: DeserializeOwned>(dir: &TempDir, file: &str) -> Result<Vec<T>, Box<dy
 }
 
 pub async fn load_gtfs(conf: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    info!("Started loading GTFS data from {}", &conf.gtfs_link);
+
     let response = reqwest::get(&conf.gtfs_link).await?;
     let response_bytes = response.bytes().await?;
+
+    debug!("Loaded {} bytes of compressed GTFS data", response_bytes.len());
 
     let gtfs_dir = tempdir()?;
     zip_extract::extract(Cursor::new(response_bytes), gtfs_dir.path(), true)?;
 
     let mut stops: Vec<Stop> = conv(&gtfs_dir, "stops.txt")?;
-    trace!("Loaded {} stops into memory from file stops.txt", stops.len());
+    debug!("Loaded {} stops into memory from file stops.txt", stops.len());
 
     let mut agencies: Vec<Agency> = conv(&gtfs_dir, "agency.txt")?;
-    trace!("Loaded {} agencies into memory from file agency.txt", agencies.len());
+    debug!("Loaded {} agencies into memory from file agency.txt", agencies.len());
 
     let mut routes: Vec<Route> = conv(&gtfs_dir, "routes.txt")?;
-    trace!("Loaded {} routes into memory from file routes.txt", routes.len());
+    debug!("Loaded {} routes into memory from file routes.txt", routes.len());
 
     let mut frequencies: Vec<Frequency> = conv(&gtfs_dir, "frequencies.txt")?;
-    trace!("Loaded {} frequencies into memory from file frequencies.txt", frequencies.len());
+    debug!("Loaded {} frequencies into memory from file frequencies.txt", frequencies.len());
 
     let mut shapes: Vec<Shape> = conv(&gtfs_dir, "shapes.txt")?;
-    trace!("Loaded {} shapes into memory from file shapes.txt", shapes.len());
+    debug!("Loaded {} shapes into memory from file shapes.txt", shapes.len());
 
     let mut trips: Vec<Trip> = conv(&gtfs_dir, "trips.txt")?;
-    trace!("Loaded {} trips into memory from file trips.txt", trips.len());
+    debug!("Loaded {} trips into memory from file trips.txt", trips.len());
 
     let mut calendars: Vec<Calendar> = conv(&gtfs_dir, "calendar.txt")?;
-    trace!("Loaded {} calendars into memory from file calendar.txt", calendars.len());
+    debug!("Loaded {} calendars into memory from file calendar.txt", calendars.len());
 
     let mut calendar_dates: Vec<CalendarDate> = conv(&gtfs_dir, "calendar_dates.txt")?;
-    trace!("Loaded {} calendar dates into memory from file calendar_dates.txt", calendar_dates.len());
+    debug!("Loaded {} calendar dates into memory from file calendar_dates.txt", calendar_dates.len());
 
     let mut stop_times: Vec<StopTime> = conv(&gtfs_dir, "stop_times.txt")?;
-    trace!("Loaded {} stop times into memory from file stop_times.txt", stop_times.len());
+    debug!("Loaded {} stop times into memory from file stop_times.txt", stop_times.len());
 
     let mut transfers: Vec<Transfer> = conv(&gtfs_dir, "transfers.txt")?;
-    trace!("Loaded {} transfers into memory from file transfers.txt", transfers.len());
+    debug!("Loaded {} transfers into memory from file transfers.txt", transfers.len());
 
     stops.sort_by(|a, b| {
         match (&a.parent_station, &b.parent_station) {
@@ -87,7 +91,7 @@ pub async fn load_gtfs(conf: &Config) -> Result<(), Box<dyn std::error::Error>> 
 
     let pool = Pool::new(conf.mysql_connect_uri.as_str())?;
     let mut conn = pool.get_conn()?;
-    trace!("Connection established");
+    debug!("Connection established");
 
     let mut tx = conn.start_transaction(TxOpts::default())?;
     trace!("Transaction started");
