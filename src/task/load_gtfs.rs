@@ -146,45 +146,45 @@ pub async fn load_gtfs(conf: &Config) -> Result<(), Box<dyn std::error::Error>> 
         trace!("Re-enabled foreign key checks post-truncations");
     }
 
-    trace!("Inserting agencies...");
+    debug!("Inserting agencies...");
     Agency::save_all(&mut db, agencies.as_mut_slice())?;
-    trace!("Agencies inserted.");
+    debug!("Agencies inserted.");
 
-    trace!("Inserting shapes...");
+    debug!("Inserting shapes...");
     Shape::save_all(&mut db, shapes.as_mut_slice())?;
-    trace!("Shapes inserted.");
+    debug!("Shapes inserted.");
 
-    trace!("Inserting stops...");
+    debug!("Inserting stops...");
     Stop::save_all(&mut db, stops.as_mut_slice())?;
-    trace!("Stops inserted.");
+    debug!("Stops inserted.");
 
-    trace!("Inserting routes...");
+    debug!("Inserting routes...");
     Route::save_all(&mut db, routes.as_mut_slice())?;
-    trace!("Routes inserted.");
+    debug!("Routes inserted.");
 
-    trace!("Inserting calendars...");
+    debug!("Inserting calendars...");
     Calendar::save_all(&mut db, calendars.as_mut_slice())?;
-    trace!("Calendars inserted.");
+    debug!("Calendars inserted.");
 
-    trace!("Inserting calendar dates...");
+    debug!("Inserting calendar dates...");
     CalendarDate::save_all(&mut db, calendar_dates.as_mut_slice())?;
-    trace!("Calendar dates inserted.");
+    debug!("Calendar dates inserted.");
 
-    trace!("Inserting trips...");
+    debug!("Inserting trips...");
     Trip::save_all(&mut db, trips.as_mut_slice())?;
-    trace!("Trips inserted.");
+    debug!("Trips inserted.");
 
-    trace!("Inserting stop times...");
+    debug!("Inserting stop times...");
     StopTime::save_all(&mut db, stop_times.as_mut_slice())?;
-    trace!("Stop times inserted.");
+    debug!("Stop times inserted.");
 
-    trace!("Inserting frequencies...");
+    debug!("Inserting frequencies...");
     Frequency::save_all(&mut db, frequencies.as_mut_slice())?;
-    trace!("Frequencies inserted.");
+    debug!("Frequencies inserted.");
 
-    trace!("Inserting transfers...");
+    debug!("Inserting transfers...");
     Transfer::save_all(&mut db, transfers.as_mut_slice())?;
-    trace!("Transfers inserted.");
+    debug!("Transfers inserted.");
 
     if let DB::Tx(tx) = db {
         tx.commit()?;
