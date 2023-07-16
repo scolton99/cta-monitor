@@ -4,7 +4,7 @@ use syn;
 use convert_case::{Case, Casing};
 use syn::{Data, Fields};
 
-#[proc_macro_derive(Record, attributes(primary))]
+#[proc_macro_derive(Record, attributes(primary, table_name))]
 pub fn record_derive(input: TokenStream) -> TokenStream {
     let ast = syn::parse(input).unwrap();
 
@@ -13,7 +13,43 @@ pub fn record_derive(input: TokenStream) -> TokenStream {
 
 fn impl_record(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
-    let table_name = name.to_string().to_case(Case::UpperSnake);
+
+    let custom_table_name = ast.attrs.iter().find_map(|attr| {
+        match &attr.meta {
+            syn::Meta::NameValue(name_value) => {
+                if name_value.path.segments.len() != 1 {
+                    return None;
+                }
+
+                let name = &name_value.path.segments[0];
+
+                match name.arguments {
+                    syn::PathArguments::None => {
+                        if name.ident.to_string().ne("table_name") {
+                            return None;
+                        }
+
+                        let value = &name_value.value;
+                        match value {
+                            syn::Expr::Lit(e) => {
+                                match &e.lit {
+                                    syn::Lit::Str(st) => {
+                                        Some(st.value())
+                                    },
+                                    _ => None
+                                }
+                            },
+                            _ => None
+                        }
+                    }
+                    _ => None
+                }
+            }
+            _ => None
+        }
+    });
+
+    let table_name = custom_table_name.unwrap_or(name.to_string().to_case(Case::UpperSnake));
 
     let get_all = format!("SELECT * FROM {}", table_name);
 

@@ -5,7 +5,7 @@ use tempfile::{tempdir, TempDir};
 use std::{fs, vec};
 use std::cmp::Ordering;
 use log::{debug, info, trace};
-use mysql::{Pool, Transaction, TxOpts};
+use mysql::{Pool, TxOpts};
 use mysql::prelude::Queryable;
 use serde::de::DeserializeOwned;
 use crate::model::gtfs::{Stop, Agency, Route, Frequency, Shape, Calendar, Trip, CalendarDate, StopTime, Transfer};

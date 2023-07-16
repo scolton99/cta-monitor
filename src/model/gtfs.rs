@@ -7,6 +7,7 @@ use mysql::prelude::Queryable;
 use mysql::Result;
 
 #[derive(Record, Deserialize)]
+#[table_name = "gtfs_agency"]
 pub struct Agency {
     #[primary] pub agency_name: Option<String>,
     pub agency_url: String,
@@ -17,6 +18,7 @@ pub struct Agency {
 }
 
 #[derive(Record, Deserialize)]
+#[table_name = "gtfs_route"]
 pub struct Route {
     #[primary] pub route_id: Option<String>,
     pub route_short_name: Option<String>,
@@ -28,6 +30,7 @@ pub struct Route {
 }
 
 #[derive(Record, Deserialize)]
+#[table_name = "gtfs_stop"]
 pub struct Stop {
     #[primary] pub stop_id: Option<String>,
     pub stop_code: Option<String>,
@@ -41,6 +44,7 @@ pub struct Stop {
 }
 
 #[derive(Record, Deserialize)]
+#[table_name = "gtfs_calendar"]
 pub struct Calendar {
     #[primary] pub service_id: Option<String>,
     pub monday: u8,
@@ -55,6 +59,7 @@ pub struct Calendar {
 }
 
 #[derive(Record, Deserialize)]
+#[table_name = "gtfs_calendar_date"]
 pub struct CalendarDate {
     #[primary] pub service_id: Option<String>,
     #[primary] pub date: Option<String>,
@@ -62,6 +67,7 @@ pub struct CalendarDate {
 }
 
 #[derive(Record, Deserialize)]
+#[table_name = "gtfs_trip"]
 pub struct Trip {
     pub route_id: String,
     pub service_id: String,
@@ -74,6 +80,7 @@ pub struct Trip {
 }
 
 #[derive(Record, Deserialize)]
+#[table_name = "gtfs_frequency"]
 pub struct Frequency {
     #[primary] pub trip_id: Option<String>,
     #[primary] pub start_time: Option<String>,
@@ -82,6 +89,7 @@ pub struct Frequency {
 }
 
 #[derive(Record, Deserialize)]
+#[table_name = "gtfs_shape"]
 pub struct Shape {
     #[primary] pub shape_id: Option<String>,
     pub shape_pt_lat: String,
@@ -91,6 +99,7 @@ pub struct Shape {
 }
 
 #[derive(Record, Deserialize)]
+#[table_name = "gtfs_stop_time"]
 pub struct StopTime {
     #[primary] pub trip_id: Option<String>,
     pub arrival_time: Option<String>,
@@ -103,6 +112,7 @@ pub struct StopTime {
 }
 
 #[derive(Record, Deserialize)]
+#[table_name = "gtfs_transfer"]
 pub struct Transfer {
     #[primary] pub from_stop_id: Option<String>,
     #[primary] pub to_stop_id: Option<String>,
