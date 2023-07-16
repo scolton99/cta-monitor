@@ -1,7 +1,8 @@
-use log::{debug, error, trace};
+use log::{error, trace};
 use tokio::fs::OpenOptions;
 use structured_logger::async_json::new_writer;
 use structured_logger::Builder;
+use tokio::time;
 use crate::util::{Config};
 use crate::task::load_gtfs::load_gtfs;
 
@@ -28,6 +29,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Err(e) = load_gtfs(&cfg).await {
         error!("{}", e);
     }
+
+    time::sleep(time::Duration::from_secs(1)).await;
 
     Ok(())
 }
