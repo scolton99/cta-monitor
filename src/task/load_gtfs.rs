@@ -147,8 +147,40 @@ pub async fn load_gtfs(conf: &Config) -> Result<(), Box<dyn std::error::Error>> 
     trace!("Agencies inserted.");
 
     trace!("Inserting stops...");
+    Shape::save_all(&mut db, shapes.as_mut_slice())?;
+    trace!("Shapes inserted.");
+
+    trace!("Inserting shapes...");
     Stop::save_all(&mut db, stops.as_mut_slice())?;
     trace!("Stops inserted.");
+
+    trace!("Inserting routes...");
+    Route::save_all(&mut db, routes.as_mut_slice())?;
+    trace!("Routes inserted.");
+
+    trace!("Inserting calendars...");
+    Calendar::save_all(&mut db, calendars.as_mut_slice())?;
+    trace!("Calendars inserted.");
+
+    trace!("Inserting calendar dates...");
+    CalendarDate::save_all(&mut db, calendar_dates.as_mut_slice())?;
+    trace!("Calendar dates inserted.");
+
+    trace!("Inserting trips...");
+    Trip::save_all(&mut db, trips.as_mut_slice())?;
+    trace!("Trips inserted.");
+
+    trace!("Inserting stop times...");
+    StopTime::save_all(&mut db, stop_times.as_mut_slice())?;
+    trace!("Stop times inserted.");
+
+    trace!("Inserting frequencies...");
+    Frequency::save_all(&mut db, frequencies.as_mut_slice())?;
+    trace!("Frequencies inserted.");
+
+    trace!("Inserting transfers...");
+    Transfer::save_all(&mut db, transfers.as_mut_slice())?;
+    trace!("Transfers inserted.");
 
     if let DB::Tx(tx) = db {
         tx.commit()?;
